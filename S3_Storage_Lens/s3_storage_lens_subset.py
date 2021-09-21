@@ -29,12 +29,15 @@ __author__    = "Eric Pullen"
 __email__     = "eppullen@amazon.com"
 __copyright__ = "Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved."
 __credits__   = ["Eric Pullen"]
-__version__   = "0.1"
+__version__   = "0.2"
 
 # Default region listed here
 REGION_NAME = "us-east-1"
 blankjson = {}
 response = ""
+
+# Defaults
+MAXBUCKETS=50
 
 # Setup Logging
 logging.basicConfig(
@@ -137,13 +140,17 @@ def putStorageLens(
         "IsEnabled": True
       }
 
-    logger.info("Modifying %s dashboard with new configuration", dashboardName)
-    logger.debug("Storage Lens Config: %s", json.dumps(storageLensConfig))
-    response = s3control.put_storage_lens_configuration(
-        ConfigId = dashboardName,
-        AccountId = accountId,
-        StorageLensConfiguration = storageLensConfig
-    )
+    # Just to double check we are not passing along to many buckets, double check here
+    if (len(storageLensConfig["Include"]["Buckets"])) > MAXBUCKETS:
+        logger.error("Sorry, found %s buckets and the max is %s." % (len(storageLensConfig["Include"]["Buckets"]),MAXBUCKETS))
+    else:
+        logger.info("Modifying %s dashboard with new configuration", dashboardName)
+        logger.debug("Storage Lens Config: %s", json.dumps(storageLensConfig))
+        response = s3control.put_storage_lens_configuration(
+            ConfigId = dashboardName,
+            AccountId = accountId,
+            StorageLensConfiguration = storageLensConfig
+        )
 
 def main():
     """ Main program run """
@@ -175,8 +182,11 @@ def main():
     )
 
     bucketList = getBucketsByPrefix(S3CLIENT,PREFIX)
-
-    putStorageLens(S3CLIENT, S3CONTROL, bucketList, DASHBOARDNAME, ACCOUNTID)
+    if len(bucketList) > MAXBUCKETS:
+        logger.error("Sorry, found %s buckets and the max is %s" % (len(bucketList),MAXBUCKETS))
+    else:
+        logger.info("Found %s (out of %s MAX) for AWS S3 Storage Lens Dashboard" %(len(bucketList),MAXBUCKETS))
+        putStorageLens(S3CLIENT, S3CONTROL, bucketList, DASHBOARDNAME, ACCOUNTID)
 
 
 if __name__ == "__main__":
