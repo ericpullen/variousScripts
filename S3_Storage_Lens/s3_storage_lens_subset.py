@@ -94,20 +94,29 @@ class DateTimeEncoder(json.JSONEncoder):
 
 def getBucketsByPrefix(
     s3client,
-    prefix
+    prefix,
+    region
     ):
     """ Get a list of all buckets that start with a specific string"""
 
+    answer_list = []
     response = s3client.list_buckets()
+    # print(json.dumps(response, cls=DateTimeEncoder))
+    # exit()
 
     jmesquery = "Buckets[?starts_with(Name, `"+prefix+"`) == `true`].Name"
 
     logger.debug("JMES Query string: %s" % jmesquery)
     answers = jmespath.search(jmesquery, response)
 
-    logger.debug("Found the following buckets starting with the prefix %s: %s" %(PREFIX, answers))
+    for bucket in answers:
+        if s3client.head_bucket(Bucket=bucket)['ResponseMetadata']['HTTPHeaders']['x-amz-bucket-region'] == region:
+            # logger.debug("Found bucket in us-east-1: %s " % bucket)
+            answer_list.append(bucket)
 
-    return answers
+    logger.debug("Found the following buckets starting with the prefix %s in %s: %s" %(PREFIX, region, answer_list))
+
+    return answer_list
 
 def putStorageLens(
     s3client,
@@ -181,12 +190,29 @@ def main():
         region_name=REGION_NAME,
     )
 
-    bucketList = getBucketsByPrefix(S3CLIENT,PREFIX)
-    if len(bucketList) > MAXBUCKETS:
-        logger.error("Sorry, found %s buckets and the max is %s" % (len(bucketList),MAXBUCKETS))
-    else:
-        logger.info("Found %s (out of %s MAX) for AWS S3 Storage Lens Dashboard" %(len(bucketList),MAXBUCKETS))
-        putStorageLens(S3CLIENT, S3CONTROL, bucketList, DASHBOARDNAME, ACCOUNTID)
+    EC2 = SESSION1.client(
+        service_name='ec2',
+        region_name=REGION_NAME,
+    )
+
+    region_list_raw = EC2.describe_regions()
+    region_list = jmespath.search("[].RegionName", region_list_raw['Regions'])
+    #print(json.dumps(region_list))
+    #print('Regions:', json.dumps(response['Regions']))
+    #exit()
+
+    for region in region_list:
+        bucketList = getBucketsByPrefix(S3CLIENT,PREFIX,region)
+        print(bucketList)
+
+    # exit()
+        if len(bucketList) > MAXBUCKETS:
+            logger.error("Sorry, found %s buckets and the max is %s" % (len(bucketList),MAXBUCKETS))
+        elif len(bucketList) == 0:
+            logger.debug("Found 0 in region %s, skipping" % region)
+        else:
+            logger.info("Found %s (out of %s MAX) for AWS S3 Storage Lens Dashboard" %(len(bucketList),MAXBUCKETS))
+            putStorageLens(S3CLIENT, S3CONTROL, bucketList, DASHBOARDNAME+'-'+region, ACCOUNTID)
 
 
 if __name__ == "__main__":
