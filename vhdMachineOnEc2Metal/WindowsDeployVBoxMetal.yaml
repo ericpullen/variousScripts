@@ -1,0 +1,281 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'VBox Windows Test platform'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "EC2 Instance Configuration"
+        Parameters:
+          - InstanceAMI
+          - InstanceType
+          - KeyPair
+      -
+        Label:
+          default: "EC2 Network Configuration"
+        Parameters:
+          - VPCId
+          - SubnetId
+          - RDPLocation
+      -
+        Label:
+          default: "Virtual Machine Configuration"
+        Parameters:
+          - S3BucketName
+          - S3FileName
+          - OutputFileName
+          - VBoxOsType
+    ParameterLabels:
+      S3BucketName:
+        default: "S3 Bucket for virtual machine"
+      OutputFileName:
+        default: "Name and location of file on local "
+
+
+Parameters:
+  InstanceType:
+    Description: EC2 metal instance type.
+    Type: String
+    Default: z1d.metal
+    ConstraintDescription: In order to run VirtualBox on EC2, we must select an x86 based AWS EC2 Metal instance type
+    AllowedValues: # Example prices below as of 11/2021
+      - m5.metal
+      - m5d.metal
+      - m5dn.metal
+      - m5n.metal
+      - m5zn.metal # $6.17
+      - c5.metal   # $8.50
+      - c5d.metal
+      - c5n.metal  # $7.20
+      - g4dn.metal
+      - r5.metal
+      - r5b.metal
+      - r5d.metal
+      - z1d.metal  # $6.67
+      - i3.metal   # $7.94
+
+
+  InstanceAMI:
+    Description: "SSM parameter store Image ID"
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    # Default: '/aws/service/ami-windows-latest/Windows_Server-2016-English-Full-Base' #2016
+    Default: '/aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base'
+  S3BucketName:
+    Description: "S3 bucket that contains the machine image file"
+    Type: String
+  S3FileName:
+    Description: "S3 file path"
+    Type: String
+  OutputFileName:
+    Description: "Where to place the machine image file on the local machine"
+    Type: String
+  VBoxOsType:
+    Description: "VirtualBox OS type"
+    Type: String
+    Default: Windows7_64
+    AllowedValues:
+      - Windows7
+      - Windows7_64
+      - Windows8
+      - Windows8_64
+      - Windows10
+      - Windows10_64
+      - WindowsXP
+      - WindowsXP_64
+      - Windows2000
+      - WindowsVista
+      - WindowsVista_64
+
+# If you wanted to run this lab without using SSM, you could enable these two parameters and un-remark them below as well
+  KeyPair:
+    Description: Name of an existing EC2 KeyPair to enable RDP access to the instances
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
+  RDPLocation:
+    Description: The IP address range that can be used to RDP to the EC2 instances
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    # Default:  0.0.0.0/0
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+
+  VPCId:
+    Description: VPC Id of where to place the EC2 instance
+    Type: AWS::EC2::VPC::Id
+
+  SubnetId:
+    Description: Subnet ID of where to place the EC2 instance
+    Type: AWS::EC2::Subnet::Id
+
+  #Imports:
+  # VPCImportName:
+  #   Type: String
+  #   Description: 'The CloudFormation name of the VPC stack to import'
+  #   Default: 'PerfLab-VPC'
+  #   MinLength: '3'
+  #   MaxLength: '32'
+
+Resources:
+  ServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPCId
+        # Fn::ImportValue: !Sub '${VPCImportName}'
+      GroupDescription: Allow outbound for instance
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3389
+        ToPort: 3389
+        CidrIp: !Ref 'RDPLocation'
+
+  ServerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - s3:*
+                Effect: Allow
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3BucketName}"
+                  - !Sub "arn:aws:s3:::${S3BucketName}/*"
+          PolicyName: s3vboxbucket
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+      - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+
+  ServerRoleInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+      - !Ref 'ServerRole'
+
+  TestServerHost:
+    Type: AWS::EC2::Instance
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT25M
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          config:
+          - 02-ConfigureLoadTest
+          - 03-Finalize
+        02-ConfigureLoadTest:
+          files:
+            "c:\\US3Access.cyberduckprofile":
+              content: !Sub |
+                  <?xml version="1.0" encoding="UTF-8"?>
+                  <plist version="1.0">
+                      <dict>
+                          <key>Protocol</key>
+                          <string>s3</string>
+                          <key>Vendor</key>
+                          <string>s3-role</string>
+                          <key>Description</key>
+                          <string>S3 Using EC2 Instance Metadata</string>
+                          <key>Context</key>
+                          <string>http://169.254.169.254/latest/meta-data/iam/security-credentials/${ServerRole}</string>
+                          <key>Username Configurable</key>
+                          <false/>
+                          <key>Default Nickname</key>
+                          <string>S3 Access</string>
+                          <key>Default Path</key>
+                          <string>${S3BucketName}</string>
+                          <key>Password Configurable</key>
+                          <false/>
+                          <key>Token Configurable</key>
+                          <false/>
+                          <key>Anonymous Configurable</key>
+                          <false/>
+                      </dict>
+                  </plist>
+        03-Finalize:
+          commands:
+            00_signal_success:
+              command: !Sub 'cfn-signal.exe -e 0 --resource TestServerHost --stack ${AWS::StackName} --region ${AWS::Region}'
+              waitAfterCompletion: '0'
+    Properties:
+      BlockDeviceMappings:
+      - DeviceName: "/dev/sda1"
+        Ebs:
+          VolumeType: "gp3"
+          DeleteOnTermination: True
+          VolumeSize: 500
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-WinVBox-${AWS::Region}'
+      KeyName: !Ref 'KeyPair'
+      ImageId: !Ref InstanceAMI
+      InstanceType: !Ref InstanceType
+      SecurityGroupIds:
+         - !Ref 'ServerSecurityGroup'
+      IamInstanceProfile: !Ref 'ServerRoleInstanceProfile'
+      Monitoring: True
+      SubnetId: !Ref SubnetId
+        # Fn::ImportValue: !Sub '${VPCImportName}-App1Subnet1'
+      UserData:
+        Fn::Base64:
+         !Sub |
+          <powershell>
+          cfn-init.exe -v -c config -s ${AWS::StackName} --resource TestServerHost --region ${AWS::Region}
+
+          Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+          choco install atom nano firefox cyberduck -y
+          choco install awscli -y
+          choco install virtualbox -y;
+          iex ((New-Object System.Net.WebClient).DownloadString('https://svn.cyberduck.io/trunk/profiles/S3%20(Credentials%20from%20Instance%20Metadata).cyberduckprofile'))
+
+
+          # Signal to CFN that we are done, just in case the rest of this process takes too long.
+          cfn-signal.exe -e 0 --resource TestServerHost --stack ${AWS::StackName} --region ${AWS::Region}
+          & 'C:\ProgramData\Amazon\EC2-Windows\Launch\Scripts\InitializeDisks.ps1'
+
+          # Downloading S3 VHD file
+          echo "Downloading the file ${S3BucketName}${S3FileName}"
+          echo "Attempting - s3 cp s3://${S3BucketName}${S3FileName} ${OutputFileName}"
+          & 'C:\Program Files\Amazon\AWSCLIV2\aws' s3 cp s3://${S3BucketName}${S3FileName} ${OutputFileName} ;
+          echo "Done downloading the file"
+
+
+          $dlfilename = '${OutputFileName}';
+          $outputName = $dlfilename;
+          if($dlfilename.ToLower().Contains('vhdx')){
+            $outputName = $dlfilename.Substring(0,($dlfilename.Length-1));
+            echo "Found vhdx. Converting $dlfilename from vhdx to vhd file $outputName";
+            & 'C:\Program Files\Oracle\VirtualBox\vboxmanage' clonehd $dlfilename $outputName --format 'vhd' }
+
+          echo "Starting setup of VBox for image"
+
+          & 'C:\Program Files\Oracle\VirtualBox\vboxmanage' createvm --name "LabTest" --default --register --ostype ${VBoxOsType}
+          & 'C:\Program Files\Oracle\VirtualBox\vboxmanage' modifyvm "LabTest" --memory 16384 --vram 32 --clipboard-mode bidirectional --draganddrop bidirectional
+          & 'C:\Program Files\Oracle\VirtualBox\vboxmanage' storageattach "LabTest" --storagectl "SATA" --port 0 --device 0 --type hdd --medium $outputName
+          & 'C:\Program Files\Oracle\VirtualBox\vboxmanage' storageattach "LabTest" --storagectl "SATA" --port 1 --device 0 --type dvddrive --medium "C:\Program Files\Oracle\VirtualBox\VBoxGuestAdditions.iso"
+
+          echo "Done setting up the VM"
+          copy c:\US3Access.cyberduckprofile C:\Users\Administrator\Desktop\
+
+          refreshenv;
+          </powershell>
+
+
+Outputs:
+  InstanceId:
+    Description: The instance ID of the web server
+    Value: !Ref 'TestServerHost'
