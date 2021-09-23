@@ -1,4 +1,4 @@
-# This CFN will create a Windows Server VM on EC2 bare meatal
+# This CFN will create a Windows Server VM on EC2 bare metal
 #  along with VirtualBox to startup older VHD images within.
 #
 # ** Licensing concerns are still up to the consumer of this CloudFormation **
