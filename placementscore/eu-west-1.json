@@ -1,0 +1,12 @@
+{
+    "InstanceTypes": [
+      "r5.4xlarge",
+      "r5.8xlarge"
+    ],
+    "TargetCapacity": 5,
+    "TargetCapacityUnitType": "vcpu",
+    "SingleAvailabilityZone": true,
+    "RegionNames": [
+        "eu-west-1"
+    ]
+}

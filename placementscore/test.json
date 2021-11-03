@@ -1,0 +1,26 @@
+{
+  "ArchitectureTypes": [
+    "x86_64"
+  ],
+  "VirtualizationTypes": [
+    "hvm"
+  ],
+  "InstanceRequirements": {
+    "VCpuCount": {
+      "Min": 16,
+      "Max": 32
+    },
+    "MemoryMiB": {
+      "Min": 64,
+      "Max": 128
+    },
+    "CpuManufacturers": [
+      "intel",
+      "amd"
+    ],
+    "InstanceGenerations": [
+      "current",
+      "previous"
+    ]
+  }
+}
