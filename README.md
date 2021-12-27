@@ -1,2 +1,2 @@
 # variousScripts
-Various AWS scripts I use
+Various AWS scripts I use and maintain
