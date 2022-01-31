@@ -53,7 +53,7 @@ Parameters:
   InstanceType:
     Description: EC2 metal instance type.
     Type: String
-    Default: z1d.metal
+    Default: m5zn.metal
     ConstraintDescription: In order to run VirtualBox on EC2, we must select an x86 based AWS EC2 Metal instance type
     AllowedValues: # Example prices below as of 11/2021
       - m5.metal
@@ -282,6 +282,9 @@ Resources:
           & 'C:\Program Files\Oracle\VirtualBox\vboxmanage' modifyvm "LabTest" --memory 16384 --vram 32 --clipboard-mode bidirectional --draganddrop bidirectional
           & 'C:\Program Files\Oracle\VirtualBox\vboxmanage' storageattach "LabTest" --storagectl "SATA" --port 0 --device 0 --type hdd --medium $outputName
           & 'C:\Program Files\Oracle\VirtualBox\vboxmanage' storageattach "LabTest" --storagectl "SATA" --port 1 --device 0 --type dvddrive --medium "C:\Program Files\Oracle\VirtualBox\VBoxGuestAdditions.iso"
+          # This will cover the various older OS tyes that still use IDE
+          & 'C:\Program Files\Oracle\VirtualBox\vboxmanage' storageattach "LabTest" --storagectl "IDE" --port 0 --device 0 --type hdd --medium $outputName
+          & 'C:\Program Files\Oracle\VirtualBox\vboxmanage' storageattach "LabTest" --storagectl "IDE" --port 1 --device 0 --type dvddrive --medium "C:\Program Files\Oracle\VirtualBox\VBoxGuestAdditions.iso"
 
           echo "Done setting up the VM"
           copy c:\US3Access.cyberduckprofile C:\Users\Administrator\Desktop\
