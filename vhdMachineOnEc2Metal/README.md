@@ -14,20 +14,20 @@ The purpose of this Cloudformation template is to stand up a single EC2 instance
 1. Select the file you downloaded above (WindowsDeployVBoxMetal.yml) and then click "Next"
   ![CFN4](./documentation/CFN4.png)
 1. Stack details:
-11. Stack Name - enter a stack name, such as "TestVHD1". You can name this whatever you want, and it will be used as the name given to the EC2 instance.
-**EC2 Instance Configuration:**
-11. InstanceAMI - you can select a different base AMI if you wish, but for the purposes of this POC we simply use a base Windows Server 2019 AMI.
-11. InstanceType - you can select any metal based x86 instance type from the drop down list. **Please check with ![AWS pricing calculator](https://calculator.aws/) before you proceed as all of these EC2 types do carry a higher price per hour.** As an example, this POC is using a m5zn.metal instance in us-east-1, which currently costs $3.9641 per hour.
-11. KeyPair - Select an existing EC2 KeyPair to utilize to get the Administrator password for the EC2 instance once created. If you do not have a keypair already created, please do so outside of this CloudFormation template.
-**EC2 Network Configuration:**
-11. VPCId - The VPC ID where you want to place this EC2 instance
-11. SubnetId - The Subnet ID where you want to place this EC2 instance
-11. RDPLocation - This is the IP range you wish to gain access to the RDP connection for this EC2 instance.
-**Virtual Machine Configuration:**
-11. S3 Bucket Name - This is the bucket name that holds your VHD image file
-11. S3FileName - This is the location within the bucket where the VHD image file is located
-11. Name and location of file on local - This is where you would like the file placed on the local disk. *If your instance type comes with ephemeral storage, you could copy the file there for the fastest access*
-11. VBoxOsType - This is the type of virtual machine you are loading from the VHD file. This corresponds with the VirtualBox OS types.
+  11. Stack Name - enter a stack name, such as "TestVHD1". You can name this whatever you want, and it will be used as the name given to the EC2 instance.
+  **EC2 Instance Configuration:**
+  11. InstanceAMI - you can select a different base AMI if you wish, but for the purposes of this POC we simply use a base Windows Server 2019 AMI.
+  11. InstanceType - you can select any metal based x86 instance type from the drop down list. **Please check with ![AWS pricing calculator](https://calculator.aws/) before you proceed as all of these EC2 types do carry a higher price per hour.** As an example, this POC is using a m5zn.metal instance in us-east-1, which currently costs $3.9641 per hour.
+  11. KeyPair - Select an existing EC2 KeyPair to utilize to get the Administrator password for the EC2 instance once created. If you do not have a keypair already created, please do so outside of this CloudFormation template.
+  **EC2 Network Configuration:**
+  11. VPCId - The VPC ID where you want to place this EC2 instance
+  11. SubnetId - The Subnet ID where you want to place this EC2 instance
+  11. RDPLocation - This is the IP range you wish to gain access to the RDP connection for this EC2 instance.
+  **Virtual Machine Configuration:**
+  11. S3 Bucket Name - This is the bucket name that holds your VHD image file
+  11. S3FileName - This is the location within the bucket where the VHD image file is located
+  11. Name and location of file on local - This is where you would like the file placed on the local disk. *If your instance type comes with ephemeral storage, you could copy the file there for the fastest access*
+  11. VBoxOsType - This is the type of virtual machine you are loading from the VHD file. This corresponds with the VirtualBox OS types.
 1. Click Next
   ![CFN5](./documentation/CFN5.png)
 1. Under the configure stack options, you can scroll to the bottom and click Next
