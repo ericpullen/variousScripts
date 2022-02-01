@@ -14,10 +14,10 @@ The purpose of this Cloudformation template is to stand up a single EC2 instance
 1. Select the file you downloaded above (WindowsDeployVBoxMetal.yml) and then click "Next"
   ![CFN4](./documentation/CFN4.png)
 1. Stack details:
-  1. Stack Name - enter a stack name, such as "TestVHD1". You can name this whatever you want, and it will be used as the name given to the EC2 instance.
+    1. Stack Name - enter a stack name, such as "TestVHD1". You can name this whatever you want, and it will be used as the name given to the EC2 instance.
   **EC2 Instance Configuration:**
-  1. InstanceAMI - you can select a different base AMI if you wish, but for the purposes of this POC we simply use a base Windows Server 2019 AMI.
-  1. InstanceType - you can select any metal based x86 instance type from the drop down list. **Please check with [AWS pricing calculator](https://calculator.aws/) before you proceed as all of these EC2 types do carry a higher price per hour.** As an example, this POC is using a m5zn.metal instance in us-east-1, which currently costs $3.9641 per hour.
+    1. InstanceAMI - you can select a different base AMI if you wish, but for the purposes of this POC we simply use a base Windows Server 2019 AMI.
+    1. InstanceType - you can select any metal based x86 instance type from the drop down list. **Please check with [AWS pricing calculator](https://calculator.aws/) before you proceed as all of these EC2 types do carry a higher price per hour.** As an example, this POC is using a m5zn.metal instance in us-east-1, which currently costs $3.9641 per hour.
   1. KeyPair - Select an existing EC2 KeyPair to utilize to get the Administrator password for the EC2 instance once created. If you do not have a keypair already created, please do so outside of this CloudFormation template.
   **EC2 Network Configuration:**
   1. VPCId - The VPC ID where you want to place this EC2 instance
