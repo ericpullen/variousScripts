@@ -1,9 +1,9 @@
-h1. Virtual Box on top of EC2 Metal instance
+# Virtual Box on top of EC2 Metal instance
 
-h2. Overview
+## Overview
 The purpose of this Cloudformation template is to stand up a single EC2 instance running Windows Server with VirtualBox, FireFox, and Cyberduck during creation. It will also pull down a VHD image from a S3 bucket, copy it to the local machine, and configure VirtualBox for it.
 
-h2. Example Setup
+## Example Setup
 ![CFN1](./documentation/CFN1.png)
 
 ![CFN2](./documentation/CFN2.png)
