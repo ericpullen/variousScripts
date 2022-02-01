@@ -29,7 +29,7 @@ The purpose of this Cloudformation template is to stand up a single EC2 instance
         * S3FileName - This is the location within the bucket where the VHD image file is located
         * Name and location of file on local - This is where you would like the file placed on the local disk. *If your instance type comes with ephemeral storage, you could copy the file there for the fastest access*
         * VBoxOsType - This is the type of virtual machine you are loading from the VHD file. This corresponds with the VirtualBox OS types.
-1. Click Next
+    * Click Next
   ![CFN5](./documentation/CFN5.png)
 1. Under the configure stack options, you can scroll to the bottom and click Next
   ![CFN6](./documentation/CFN6.png)
