@@ -5,8 +5,8 @@
 * [Example CloudFormation Deployment](#example-cloudformation-deployment)
 * [Connecting to the EC2 Windows Server via RDP](#connecting-to-the-ec2-windows-server-via-rdp)
 * [How to start the virtual image](#how-to-start-the-virtual-image)
-* [How to copy files to/from your S3 bucket](#how-to-copy-files-to-from-your-s3-bucket)
-* [How to remove/cleanup the infrastructure](#how-to-remove-cleanup-the-infrastructure)
+* [How to copy files to/from your S3 bucket](#how-to-copy-files-tofrom-your-s3-bucket)
+* [How to remove/cleanup the infrastructure](#how-to-removecleanup-the-infrastructure)
 
 ## Overview
 The purpose of this Cloudformation template is to stand up a single EC2 instance running Windows Server with VirtualBox, FireFox, and Cyberduck during creation. It will also pull down a VHD image from a S3 bucket, copy it to the local machine, and configure VirtualBox for it.
