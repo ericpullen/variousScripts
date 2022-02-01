@@ -55,6 +55,8 @@ The purpose of this Cloudformation template is to stand up a single EC2 instance
   ![CFN16](./documentation/CFN16.png)
 1. You can now see the Administrator password listed in the window. Copy this into your clipboard.
   ![CFN17](./documentation/CFN17.png)
+
+## Connecting to the EC2 Windows Server via RDP
 1. Open a RDP application and add the RDP file you downloaded above.
   ![CFN18](./documentation/CFN18.png)
 1. Open the connection and copy the Administrator password you copied above.
