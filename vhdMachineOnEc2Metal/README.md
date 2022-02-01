@@ -14,15 +14,13 @@ The purpose of this Cloudformation template is to stand up a single EC2 instance
 1. Select the file you downloaded above (WindowsDeployVBoxMetal.yml) and then click "Next"
   ![CFN4](./documentation/CFN4.png)
 1. Stack details:
-    * Stack Name - enter a stack name, such as "TestVHD1". You can name this whatever you want, and it will be used as the name given to the EC2 instance. \\ **EC2 Instance Configuration:**
+    * Stack Name - enter a stack name, such as "TestVHD1". You can name this whatever you want, and it will be used as the name given to the EC2 instance.  **EC2 Instance Configuration:**
     * InstanceAMI - you can select a different base AMI if you wish, but for the purposes of this POC we simply use a base Windows Server 2019 AMI.
     * InstanceType - you can select any metal based x86 instance type from the drop down list. **Please check with [AWS pricing calculator](https://calculator.aws/) before you proceed as all of these EC2 types do carry a higher price per hour.** As an example, this POC is using a m5zn.metal instance in us-east-1, which currently costs $3.9641 per hour.
-    * KeyPair - Select an existing EC2 KeyPair to utilize to get the Administrator password for the EC2 instance once created. If you do not have a keypair already created, please do so outside of this CloudFormation template.
-    **EC2 Network Configuration:**
+    * KeyPair - Select an existing EC2 KeyPair to utilize to get the Administrator password for the EC2 instance once created. If you do not have a keypair already created, please do so outside of this CloudFormation template.  **EC2 Network Configuration:**
     * VPCId - The VPC ID where you want to place this EC2 instance
     * SubnetId - The Subnet ID where you want to place this EC2 instance
-    * RDPLocation - This is the IP range you wish to gain access to the RDP connection for this EC2 instance.
-    **Virtual Machine Configuration:**
+    * RDPLocation - This is the IP range you wish to gain access to the RDP connection for this EC2 instance.  **Virtual Machine Configuration:**
     * S3 Bucket Name - This is the bucket name that holds your VHD image file
     * S3FileName - This is the location within the bucket where the VHD image file is located
     * Name and location of file on local - This is where you would like the file placed on the local disk. *If your instance type comes with ephemeral storage, you could copy the file there for the fastest access*
