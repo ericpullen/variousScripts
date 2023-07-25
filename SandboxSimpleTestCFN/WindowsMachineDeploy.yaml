@@ -19,7 +19,7 @@ Parameters:
     Default: '/aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base'
   PrimaryNodeLabel:
     Type: String
-    Default: "BPDTestMachine"
+    Default: "TestMachine"
 
   MetricAggregationInterval:
     Description: How often we should collect agent data from the machine
@@ -29,7 +29,6 @@ Parameters:
     Description: How often we should collect agent data from the machine
     Type: Number
     Default: 5
-# If you wanted to run this lab without using SSM, you could enable these two parameters and un-remark them below as well
   KeyPair:
     Description: Name of an existing EC2 KeyPair to enable RDP access to the instances
     Type: AWS::EC2::KeyPair::KeyName
@@ -42,6 +41,7 @@ Parameters:
     Default:  0.0.0.0/0
     AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  
   #Imports:
   VPCImportName:
     Type: String
