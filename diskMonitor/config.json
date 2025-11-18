@@ -6,5 +6,8 @@
   "mount_point": "/",
   "alert_cooldown_minutes": 60,
   "pushover_priority": 1,
-  "pushover_sound": "updown"
+  "pushover_sound": "siren",
+  "machine_name": "M4MegaMini",
+  "pushover_retry": 30,
+  "pushover_expire": 59
 }

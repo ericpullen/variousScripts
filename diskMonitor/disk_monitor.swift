@@ -22,6 +22,9 @@ struct Config {
     let alertCooldownMinutes: Int
     let pushoverPriority: Int
     let pushoverSound: String
+    let machineName: String
+    let pushoverRetry: Int  // Retry interval in seconds (required for priority 2)
+    let pushoverExpire: Int // Expire time in seconds (required for priority 2)
     
     static func load(from path: String) throws -> Config {
         let url = URL(fileURLWithPath: path)
@@ -33,6 +36,19 @@ struct Config {
             throw NSError(domain: "ConfigError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing required config fields: pushover_token, pushover_user_key"])
         }
         
+        // Auto-detect machine name if not provided in config
+        let machineName: String
+        if let configMachineName = json["machine_name"] as? String, !configMachineName.isEmpty {
+            machineName = configMachineName
+        } else {
+            // Try to get the computer name from the system
+            if let hostName = Host.current().localizedName {
+                machineName = hostName
+            } else {
+                machineName = Host.current().name ?? "Unknown"
+            }
+        }
+        
         return Config(
             pushoverToken: token,
             pushoverUserKey: userKey,
@@ -41,11 +57,22 @@ struct Config {
             mountPoint: (json["mount_point"] as? String) ?? "/",
             alertCooldownMinutes: (json["alert_cooldown_minutes"] as? Int) ?? 60,
             pushoverPriority: (json["pushover_priority"] as? Int) ?? 1,
-            pushoverSound: (json["pushover_sound"] as? String) ?? "updown"
+            pushoverSound: (json["pushover_sound"] as? String) ?? "pushover",
+            machineName: machineName,
+            pushoverRetry: (json["pushover_retry"] as? Int) ?? 30,
+            pushoverExpire: (json["pushover_expire"] as? Int) ?? 59
         )
     }
     
     static func createExample(at path: String) {
+        // Auto-detect machine name for example config
+        let machineName: String
+        if let hostName = Host.current().localizedName {
+            machineName = hostName
+        } else {
+            machineName = Host.current().name ?? "YOUR_MACHINE_NAME"
+        }
+        
         let example: [String: Any] = [
             "pushover_token": "YOUR_APP_TOKEN_HERE",
             "pushover_user_key": "YOUR_USER_KEY_HERE",
@@ -54,7 +81,10 @@ struct Config {
             "mount_point": "/",
             "alert_cooldown_minutes": 60,
             "pushover_priority": 1,
-            "pushover_sound": "updown"
+            "pushover_sound": "pushover",
+            "machine_name": machineName,
+            "pushover_retry": 30,
+            "pushover_expire": 59
         ]
         
         let url = URL(fileURLWithPath: path)
@@ -128,24 +158,41 @@ class DiskMonitor {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         
-        let message = String(format: "⚠️ Disk Space Alert!\n\nMount Point: %@\nUsage: %.1f%%\nUsed: %.1f GB\nFree: %.1f GB\nTotal: %.1f GB",
+        let message = String(format: "⚠️ Disk Space Alert!\n\nMachine: %@\nMount Point: %@\nUsage: %.1f%%\nUsed: %.1f GB\nFree: %.1f GB\nTotal: %.1f GB",
+                           config.machineName,
                            diskInfo.mountPoint,
                            diskInfo.percentUsed,
                            diskInfo.usedGB,
                            diskInfo.freeGB,
                            diskInfo.totalGB)
         
-        var components = URLComponents()
-        components.queryItems = [
-            URLQueryItem(name: "token", value: config.pushoverToken),
-            URLQueryItem(name: "user", value: config.pushoverUserKey),
-            URLQueryItem(name: "message", value: message),
-            URLQueryItem(name: "title", value: "Disk Space Warning"),
-            URLQueryItem(name: "priority", value: String(config.pushoverPriority)),
-            URLQueryItem(name: "sound", value: config.pushoverSound)
+        // Build form-encoded body manually to match Pushover API requirements
+        // According to https://pushover.net/api, parameters should be percent-encoded
+        // Use a character set that allows alphanumerics and common safe characters
+        let allowedChars = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+        func formEncode(_ value: String) -> String {
+            return value.addingPercentEncoding(withAllowedCharacters: allowedChars) ?? value
+        }
+        
+        // Build form data array
+        var formDataArray = [
+            "token=\(formEncode(config.pushoverToken))",
+            "user=\(formEncode(config.pushoverUserKey))",
+            "message=\(formEncode(message))",
+            "title=\(formEncode("Disk Space Warning"))",
+            "priority=\(formEncode(String(config.pushoverPriority)))",
+            "sound=\(formEncode(config.pushoverSound))"
         ]
         
-        request.httpBody = components.query?.data(using: .utf8)
+        // Add retry and expire parameters if priority is 2 (emergency)
+        if config.pushoverPriority == 2 {
+            formDataArray.append("retry=\(config.pushoverRetry)")
+            formDataArray.append("expire=\(config.pushoverExpire)")
+        }
+        
+        let formData = formDataArray.joined(separator: "&")
+        
+        request.httpBody = formData.data(using: .utf8)
         
         let semaphore = DispatchSemaphore(value: 0)
         var success = false
@@ -163,16 +210,30 @@ class DiskMonitor {
                 return
             }
             
-            if httpResponse.statusCode == 200, let data = data {
-                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let status = json["status"] as? Int, status == 1 {
-                    print("✓ Pushover notification sent successfully")
-                    success = true
+            if let data = data {
+                if httpResponse.statusCode == 200 {
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let status = json["status"] as? Int, status == 1 {
+                        print("✓ Pushover notification sent successfully")
+                        success = true
+                    } else {
+                        let responseText = String(data: data, encoding: .utf8) ?? "Unknown error"
+                        print("✗ Pushover notification failed: \(responseText)")
+                    }
                 } else {
-                    print("✗ Pushover notification failed: \(String(data: data, encoding: .utf8) ?? "Unknown error")")
+                    // 4xx errors - show the error details from Pushover
+                    let responseText = String(data: data, encoding: .utf8) ?? "Unknown error"
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let errors = json["errors"] as? [String] {
+                        print("✗ Error sending notification: HTTP \(httpResponse.statusCode)")
+                        print("  Pushover errors: \(errors.joined(separator: ", "))")
+                    } else {
+                        print("✗ Error sending notification: HTTP \(httpResponse.statusCode)")
+                        print("  Response: \(responseText)")
+                    }
                 }
             } else {
-                print("✗ Error sending notification: HTTP \(httpResponse.statusCode)")
+                print("✗ Error sending notification: HTTP \(httpResponse.statusCode) (no response body)")
             }
         }
         
