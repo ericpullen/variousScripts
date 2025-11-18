@@ -1,0 +1,10 @@
+{
+  "pushover_token": "YOUR_APP_TOKEN_HERE",
+  "pushover_user_key": "YOUR_USER_KEY_HERE",
+  "threshold_percent": 60,
+  "check_interval_seconds": 60,
+  "mount_point": "/",
+  "alert_cooldown_minutes": 60,
+  "pushover_priority": 1,
+  "pushover_sound": "updown"
+}
