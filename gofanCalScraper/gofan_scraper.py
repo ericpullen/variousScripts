@@ -94,37 +94,13 @@ def scrape_gofan_events(url: str, headless: bool = True, debug: bool = False) ->
             except json.JSONDecodeError:
                 pass
         
-        # Strategy 2: Look for event cards in the DOM
-        # GoFan uses various class patterns - try multiple selectors
-        event_cards = []
-        selectors = [
-            '[data-testid*="event"]',
-            '[class*="EventCard"]',
-            '[class*="event-card"]', 
-            '[class*="eventCard"]',
-            'a[href*="/event/"]',
-        ]
+        # Strategy 2: Look for event cards using data-testid (GoFan's clean structure)
+        event_cards = soup.select('[data-testid="event-card"]')
+        print(f"Found {len(event_cards)} event cards with data-testid")
         
-        for selector in selectors:
-            found = soup.select(selector)
-            if found:
-                print(f"Found {len(found)} elements with: {selector}")
-                event_cards.extend(found)
-        
-        # Deduplicate and extract event data
-        seen_urls = set()
         for card in event_cards:
-            event_data = extract_event_from_card(card, url)
-            if event_data and event_data.get('ticket_url') not in seen_urls:
-                # Filter out non-event entries
-                title = event_data.get('title', '').lower()
-                skip_patterns = ['today\'s events', 'upcoming events', 'about ', 'follow', '1150 north highway']
-                if any(skip in title for skip in skip_patterns):
-                    continue
-                if not event_data.get('date'):
-                    continue  # Skip entries without dates
-                    
-                seen_urls.add(event_data.get('ticket_url'))
+            event_data = extract_event_from_card_structured(card, url)
+            if event_data:
                 events.append(event_data)
         
         # Strategy 3: Parse visible text structure if DOM parsing fails
@@ -163,6 +139,107 @@ def extract_events_from_nextdata(data: dict, base_url: str) -> list[dict]:
     
     find_events(data)
     return events
+
+
+def extract_event_from_card_structured(card, base_url: str) -> dict | None:
+    """
+    Extract event data from a GoFan event card using data-testid attributes.
+    
+    GoFan's structure:
+    - data-testid="event-tag" -> Home/Away
+    - data-testid="day-of-week" -> Mon, Tue, etc.
+    - data-testid="month-day-of-year" -> Dec 8, Jan 5
+    - data-testid="year" -> 2026 (only shown for future years)
+    - data-testid="time" -> 7:00 PM
+    - data-testid="event-name" -> Oldham County Colonels vs Kentucky Country Bearcats
+    - data-testid="sport" -> Basketball
+    - data-testid="activity-levels" -> Girls JV/Varsity
+    - data-testid="more-info" -> Oldham County High School (Buckner, KY)
+    - Buy tickets link -> /event/5212753?schoolId=KY6207
+    """
+    event = {}
+    
+    # Home/Away
+    tag = card.select_one('[data-testid="event-tag"]')
+    if tag:
+        event['home_away'] = tag.get_text(strip=True)
+    
+    # Date components
+    day_of_week = card.select_one('[data-testid="day-of-week"]')
+    month_day = card.select_one('[data-testid="month-day-of-year"]')
+    year_elem = card.select_one('[data-testid="year"]')
+    time_elem = card.select_one('[data-testid="time"]')
+    
+    if month_day:
+        date_str = month_day.get_text(strip=True)
+        if year_elem:
+            year_text = year_elem.get_text(strip=True)
+            # GoFan shows "2026" but means 2025 for Jan-Jul dates
+            date_str = f"{date_str} {year_text}"
+        event['date'] = date_str
+    
+    if time_elem:
+        event['time'] = time_elem.get_text(strip=True)
+    
+    # Event name (matchup)
+    event_name = card.select_one('[data-testid="event-name"]')
+    if event_name:
+        full_name = event_name.get_text(strip=True)
+        event['full_name'] = full_name
+        
+        # Parse the matchup to create a cleaner title
+        # Format: "Oldham County Colonels vs Kentucky Country Bearcats"
+        # or "Southern Trojans vs Oldham County" for away games
+        if ' vs ' in full_name:
+            parts = full_name.split(' vs ')
+            if event.get('home_away') == 'Home':
+                # Home game: we're the first team, opponent is second
+                opponent = parts[1].strip() if len(parts) > 1 else ''
+                event['title'] = f"vs {opponent}"
+                event['opponent'] = opponent
+            else:
+                # Away game: opponent is first team
+                opponent = parts[0].strip()
+                event['title'] = f"@ {opponent}"
+                event['opponent'] = opponent
+        else:
+            # Special event (e.g., "Ronald McDonald House Classic")
+            event['title'] = full_name
+    
+    # Sport and level
+    sport = card.select_one('[data-testid="sport"]')
+    if sport:
+        event['sport'] = sport.get_text(strip=True)
+    
+    activity_levels = card.select_one('[data-testid="activity-levels"]')
+    if activity_levels:
+        levels = activity_levels.get_text(strip=True)
+        event['levels'] = levels
+        # Add prefix based on gender
+        if 'Girls' in levels:
+            event['title'] = f"GBB: {event.get('title', '')}"
+        elif 'Boys' in levels:
+            event['title'] = f"BBB: {event.get('title', '')}"
+    
+    # Location - this is the key new field!
+    more_info = card.select_one('[data-testid="more-info"]')
+    if more_info:
+        location_text = more_info.get_text(strip=True)
+        event['venue'] = location_text
+    
+    # Ticket URL
+    buy_link = card.select_one('a[href*="/event/"]')
+    if buy_link:
+        href = buy_link.get('href', '')
+        if href.startswith('/'):
+            href = f"https://gofan.co{href}"
+        event['ticket_url'] = href
+    
+    # Only return if we have meaningful data
+    if not event.get('date') or not event.get('title'):
+        return None
+    
+    return event
 
 
 def extract_event_from_card(card, base_url: str) -> dict | None:
@@ -294,14 +371,9 @@ def create_ics_calendar(events: list[dict], calendar_name: str = "GoFan Events")
             # Assume 2-hour duration for games
             event.add('dtend', dt_start + timedelta(hours=2))
         
-        # Location
-        location_parts = []
+        # Location - use venue from the structured extraction
         if evt_data.get('venue'):
-            location_parts.append(evt_data['venue'])
-        if evt_data.get('address'):
-            location_parts.append(evt_data['address'])
-        if location_parts:
-            event.add('location', ', '.join(location_parts))
+            event.add('location', evt_data['venue'])
         
         # URL to tickets
         if evt_data.get('ticket_url'):
